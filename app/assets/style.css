@@ -1,0 +1,215 @@
+/* 
+ * Project Prism - Google Cloud Partner Aesthetic
+ * Material Design inspired styling
+ */
+
+/* Import Roboto font */
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
+
+/* Root variables */
+:root {
+    --primary-color: #1A73E8;
+    --primary-hover: #1557B0;
+    --background-color: #F8F9FA;
+    --sidebar-color: #FFFFFF;
+    --text-primary: #202124;
+    --text-secondary: #5F6368;
+    --border-color: #DADCE0;
+    --success-color: #34A853;
+    --warning-color: #FBBC04;
+    --error-color: #EA4335;
+    --card-shadow: 0 1px 3px rgba(60, 64, 67, 0.15);
+    --card-shadow-hover: 0 4px 12px rgba(60, 64, 67, 0.2);
+}
+
+/* Global styles */
+html, body, [class*="css"] {
+    font-family: 'Roboto', sans-serif !important;
+}
+
+/* Main app background */
+.stApp {
+    background-color: var(--background-color) !important;
+}
+
+/* Sidebar styling */
+[data-testid="stSidebar"] {
+    background-color: var(--sidebar-color) !important;
+    border-right: 1px solid var(--border-color);
+}
+
+[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] {
+    color: var(--text-primary);
+}
+
+/* Headers */
+h1, h2, h3, h4, h5, h6 {
+    color: var(--text-primary) !important;
+    font-weight: 500 !important;
+}
+
+h1 {
+    font-size: 2rem !important;
+    margin-bottom: 1.5rem !important;
+}
+
+h2 {
+    font-size: 1.5rem !important;
+    margin-bottom: 1rem !important;
+}
+
+h3 {
+    font-size: 1.25rem !important;
+}
+
+/* Primary buttons */
+.stButton > button {
+    background-color: var(--primary-color) !important;
+    color: white !important;
+    border: none !important;
+    border-radius: 4px !important;
+    padding: 0.5rem 1.5rem !important;
+    font-weight: 500 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 0.5px !important;
+    transition: all 0.2s ease !important;
+    box-shadow: var(--card-shadow) !important;
+}
+
+.stButton > button:hover {
+    background-color: var(--primary-hover) !important;
+    box-shadow: var(--card-shadow-hover) !important;
+}
+
+.stButton > button:active {
+    transform: scale(0.98) !important;
+}
+
+/* Form inputs */
+.stTextInput > div > div > input,
+.stSelectbox > div > div > div,
+.stTextArea > div > div > textarea {
+    border: 1px solid var(--border-color) !important;
+    border-radius: 4px !important;
+    padding: 0.75rem !important;
+    font-size: 0.875rem !important;
+}
+
+.stTextInput > div > div > input:focus,
+.stTextArea > div > div > textarea:focus {
+    border-color: var(--primary-color) !important;
+    box-shadow: 0 0 0 2px rgba(26, 115, 232, 0.2) !important;
+}
+
+/* Cards / containers */
+[data-testid="stExpander"],
+[data-testid="stForm"] {
+    background-color: white !important;
+    border: 1px solid var(--border-color) !important;
+    border-radius: 8px !important;
+    box-shadow: var(--card-shadow) !important;
+}
+
+/* Dataframes */
+[data-testid="stDataFrame"] {
+    border: 1px solid var(--border-color) !important;
+    border-radius: 8px !important;
+    overflow: hidden !important;
+}
+
+/* Success messages */
+.stSuccess {
+    background-color: rgba(52, 168, 83, 0.1) !important;
+    border-color: var(--success-color) !important;
+    color: var(--success-color) !important;
+}
+
+/* Error messages */
+.stError {
+    background-color: rgba(234, 67, 53, 0.1) !important;
+    border-color: var(--error-color) !important;
+    color: var(--error-color) !important;
+}
+
+/* Warning messages */
+.stWarning {
+    background-color: rgba(251, 188, 4, 0.1) !important;
+    border-color: var(--warning-color) !important;
+}
+
+/* Info messages */
+.stInfo {
+    background-color: rgba(26, 115, 232, 0.1) !important;
+    border-color: var(--primary-color) !important;
+}
+
+/* File uploader */
+[data-testid="stFileUploader"] {
+    border: 2px dashed var(--border-color) !important;
+    border-radius: 8px !important;
+    padding: 1rem !important;
+    background-color: white !important;
+}
+
+[data-testid="stFileUploader"]:hover {
+    border-color: var(--primary-color) !important;
+}
+
+/* Metrics */
+[data-testid="stMetricValue"] {
+    color: var(--primary-color) !important;
+    font-weight: 500 !important;
+}
+
+/* Download button */
+.stDownloadButton > button {
+    background-color: var(--success-color) !important;
+}
+
+.stDownloadButton > button:hover {
+    background-color: #2D9249 !important;
+}
+
+/* Divider */
+hr {
+    border-color: var(--border-color) !important;
+}
+
+/* Links */
+a {
+    color: var(--primary-color) !important;
+    text-decoration: none !important;
+}
+
+a:hover {
+    text-decoration: underline !important;
+}
+
+/* Progress bar */
+.stProgress > div > div > div {
+    background-color: var(--primary-color) !important;
+}
+
+/* Spinner */
+.stSpinner > div {
+    border-top-color: var(--primary-color) !important;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--background-color);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--border-color);
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: var(--text-secondary);
+}
