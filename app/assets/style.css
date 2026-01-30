@@ -1,113 +1,128 @@
 /* 
- * Project Prism - High Contrast Google Cloud Aesthetic
- * Fixed visibility for sidebar and professional hierarchy
+ * Project Prism - Minimalist High-Contrast Theme
+ * Optimized for visibility on all screens
  */
 
-@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap');
 
+/* Force dark text everywhere */
 :root {
-    --primary-color: #1A73E8;
-    --primary-hover: #1557B0;
-    --background-color: #F1F3F4;
-    /* Slightly darker light grey for depth */
-    --sidebar-color: #FFFFFF;
-    --text-primary: #202124;
-    --text-secondary: #3C4043;
-    /* Darker secondary text for better contrast */
-    --border-color: #DADCE0;
-    --sidebar-active-bg: #E8F0FE;
-    --sidebar-text: #3C4043;
-    --sidebar-active-text: #1A73E8;
+    --text-color: #202124;
+    --text-muted: #5F6368;
+    --primary: #1A73E8;
+    --bg: #FFFFFF;
+    --bg-secondary: #F8F9FA;
+    --border: #E0E0E0;
 }
 
-/* Global resets for legibility */
+/* Global text reset - FORCE dark text */
 html,
 body,
-[class*="css"] {
-    font-family: 'Roboto', sans-serif !important;
-    color: var(--text-primary) !important;
+[class*="css"],
+p,
+span,
+div,
+label,
+li,
+td,
+th {
+    font-family: 'Roboto', -apple-system, sans-serif !important;
+    color: var(--text-color) !important;
 }
 
-/* Force light background */
+/* App background */
 .stApp {
-    background-color: var(--background-color) !important;
+    background-color: var(--bg) !important;
 }
 
-/* Sidebar Overhaul - STRICT VISIBILITY */
+/* Sidebar */
 [data-testid="stSidebar"] {
-    background-color: var(--sidebar-color) !important;
-    border-right: 1px solid var(--border-color) !important;
-    box-shadow: 2px 0 10px rgba(0, 0, 0, 0.05);
+    background-color: var(--bg-secondary) !important;
+    border-right: 1px solid var(--border) !important;
 }
 
-/* Sidebar Navigation Items Legibility */
-[data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p,
-[data-testid="stSidebar"] .st-emotion-cache-17l689n,
-[data-testid="stSidebar"] span {
-    color: var(--sidebar-text) !important;
-    font-weight: 500 !important;
-    font-size: 1rem !important;
+[data-testid="stSidebar"] * {
+    color: var(--text-color) !important;
 }
 
-/* Active navigation link */
-[data-testid="stSidebarNav"] li[aria-selected="true"] {
-    background-color: var(--sidebar-active-bg) !important;
-    border-radius: 0 24px 24px 0 !important;
-    margin-right: 10px !important;
-}
-
-[data-testid="stSidebarNav"] li[aria-selected="true"] a span {
-    color: var(--sidebar-active-text) !important;
-    font-weight: 700 !important;
-}
-
-/* Sidebar logo text visibility */
-[data-testid="stSidebar"] h1 {
-    color: var(--primary-color) !important;
-    font-size: 1.5rem !important;
-    margin-bottom: 0.5rem !important;
-}
-
-/* Headers visibility */
+/* Headers - ensure visibility */
 h1,
 h2,
-h3 {
-    color: var(--text-primary) !important;
+h3,
+h4,
+h5,
+h6,
+[data-testid="stHeading"] {
+    color: var(--text-color) !important;
     font-weight: 500 !important;
 }
 
-/* Professional Card Styling */
-[data-testid="stVerticalBlock"]>div>div>div[style*="background: white"] {
-    border: 1px solid var(--border-color) !important;
-    transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+/* All text elements */
+p,
+span,
+label,
+div {
+    color: var(--text-color) !important;
 }
 
-[data-testid="stVerticalBlock"]>div>div>div[style*="background: white"]:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1) !important;
+/* Muted/secondary text */
+.stCaption,
+small,
+.caption {
+    color: var(--text-muted) !important;
 }
 
-/* Primary Button Styling */
+/* Buttons */
 .stButton>button {
-    background-color: var(--primary-color) !important;
+    background-color: var(--primary) !important;
     color: #FFFFFF !important;
-    border-radius: 4px !important;
     border: none !important;
-    padding: 0.5rem 2rem !important;
     font-weight: 500 !important;
-    box-shadow: 0 1px 2px rgba(60, 64, 67, 0.3), 0 1px 3px 1px rgba(60, 64, 67, 0.15) !important;
 }
 
 .stButton>button:hover {
-    background-color: var(--primary-hover) !important;
-    box-shadow: 0 1px 3px rgba(60, 64, 67, 0.3), 0 4px 8px 3px rgba(60, 64, 67, 0.15) !important;
+    background-color: #1557B0 !important;
 }
 
-/* Hide Streamlit default decorations for a cleaner app look */
-#MainMenu {
-    visibility: visible;
+/* Form inputs */
+input,
+textarea,
+select {
+    color: var(--text-color) !important;
+    background-color: var(--bg) !important;
 }
 
+/* Info/Success/Error boxes - ensure text is readable */
+[data-testid="stAlert"] p,
+.stAlert p,
+.stInfo p,
+.stSuccess p,
+.stError p,
+.stWarning p {
+    color: var(--text-color) !important;
+}
+
+/* Metrics */
+[data-testid="stMetricValue"] {
+    color: var(--primary) !important;
+    font-weight: 700 !important;
+}
+
+[data-testid="stMetricLabel"] {
+    color: var(--text-muted) !important;
+}
+
+/* Dataframes */
+[data-testid="stDataFrame"] {
+    color: var(--text-color) !important;
+}
+
+/* Links */
+a {
+    color: var(--primary) !important;
+}
+
+/* Hide default Streamlit branding */
 footer {
     visibility: hidden;
 }
@@ -116,16 +131,7 @@ header {
     visibility: hidden;
 }
 
-/* Custom Banner styling */
-.custom-banner {
-    padding: 1.5rem;
-    background: #E8F0FE;
-    border-radius: 8px;
-    border-left: 5px solid var(--primary-color);
-    margin-bottom: 1rem;
-}
-
-.custom-banner p {
-    color: var(--primary-color) !important;
-    font-weight: 500 !important;
+/* Dividers */
+hr {
+    border-color: var(--border) !important;
 }
