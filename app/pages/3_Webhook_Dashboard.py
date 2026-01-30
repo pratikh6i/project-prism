@@ -1,12 +1,13 @@
 """
 Webhook Dashboard
 =================
-View webhook messages received from automated workflows.
+View webhook messages with support for tables, lists, code, and custom content.
 """
 
 import streamlit as st
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime
+import json
 import sys
 from pathlib import Path
 
@@ -19,7 +20,9 @@ st.set_page_config(page_title="Webhooks | Prism", page_icon="🔷", layout="wide
 
 # Apply theme
 theme = get_setting('theme', 'light')
-if theme == 'dark':
+is_dark = theme == 'dark'
+
+if is_dark:
     st.markdown("""<style>
         :root { --bg: #1E1E1E; --text: #E0E0E0; --card-bg: #2D2D2D; }
         html, body, [class*="css"], p, span, div, label, h1, h2, h3, th, td { color: var(--text) !important; }
@@ -50,9 +53,10 @@ def get_webhook_messages(limit=100, severity_filter=None, source_filter=None):
         df = pd.read_sql_query(query, conn, params=params)
         conn.close()
         return df
-    except:
+    except Exception as e:
+        logger.error(f"Error fetching webhook messages: {e}")
         conn.close()
-        return pd.DataFrame(columns=['id', 'source', 'severity', 'message', 'payload', 'received_at'])
+        return pd.DataFrame(columns=['id', 'source', 'severity', 'message_type', 'title', 'content', 'payload', 'received_at'])
 
 
 def get_sources():
@@ -74,6 +78,56 @@ def delete_message(msg_id):
     conn.close()
 
 
+def render_message_content(row, is_dark):
+    """Render message content based on type."""
+    content_type = row.get('message_type', 'text')
+    content = row['content']
+    title = row.get('title', '')
+    
+    # Title if present
+    if title:
+        st.markdown(f"**{title}**")
+    
+    # Render based on type
+    if content_type == 'table':
+        try:
+            table_data = json.loads(content)
+            headers = table_data.get('headers', [])
+            rows = table_data.get('rows', [])
+            
+            if headers and rows:
+                df = pd.DataFrame(rows, columns=headers)
+                st.dataframe(df, use_container_width=True, hide_index=True)
+            else:
+                st.text(content)
+        except:
+            st.text(content)
+    
+    elif content_type == 'list':
+        try:
+            items = json.loads(content) if isinstance(content, str) else content
+            if isinstance(items, list):
+                for item in items:
+                    st.markdown(f"• {item}")
+            else:
+                st.text(content)
+        except:
+            st.text(content)
+    
+    elif content_type == 'code':
+        st.code(content, language='text')
+    
+    elif content_type == 'json':
+        try:
+            json_data = json.loads(content) if isinstance(content, str) else content
+            st.json(json_data)
+        except:
+            st.code(content, language='json')
+    
+    else:  # text
+        st.markdown(content)
+
+
 st.title("📡 Webhook Dashboard")
 st.markdown("View incoming webhook messages from your automated workflows")
 
@@ -81,7 +135,7 @@ st.divider()
 
 # Webhook URL info
 st.markdown("##### Webhook Endpoint")
-vm_ip = "35.200.238.102"  # Update with your actual VM IP
+vm_ip = "35.200.238.102"
 webhook_url = f"http://{vm_ip}:5000/webhook/receive"
 
 col1, col2 = st.columns([3, 1])
@@ -89,34 +143,89 @@ with col1:
     st.code(webhook_url, language="text")
 with col2:
     if st.button("📋 Copy", use_container_width=True):
-        st.toast("URL copied to clipboard!")
+        st.toast("URL copied!")
 
-with st.expander("📖 How to use this webhook"):
+with st.expander("📖 API Documentation"):
     st.markdown(f"""
-    **Send POST requests to:**
+    ### Endpoint
     ```
-    {webhook_url}
+    POST {webhook_url}
     ```
     
-    **Request Body (JSON):**
+    ### Message Types
+    
+    **1. Simple Text Message**
     ```json
     {{
       "secret": "prism-webhook-2026",
-      "source": "GCP Workflow",
+      "source": "My Workflow",
       "severity": "info",
-      "message": "Your message here",
-      "data": {{"key": "value"}}
+      "type": "text",
+      "title": "Workflow Complete",
+      "content": "Processing finished successfully"
     }}
     ```
     
-    **Severity levels:** `info`, `warning`, `error`, `critical`
-    
-    **Example cURL:**
-    ```bash
-    curl -X POST {webhook_url} \\
-      -H "Content-Type: application/json" \\
-      -d '{{"secret":"prism-webhook-2026","source":"Test","severity":"info","message":"Hello from workflow!"}}'
+    **2. Table**
+    ```json
+    {{
+      "secret": "prism-webhook-2026",
+      "source": "Security Scan",
+      "severity": "warning",
+      "type": "table",
+      "title": "Vulnerability Summary",
+      "content": {{
+        "headers": ["Severity", "Count", "Status"],
+        "rows": [
+          ["Critical", "2", "Open"],
+          ["High", "5", "Open"],
+          ["Medium", "12", "Remediated"]
+        ]
+      }}
+    }}
     ```
+    
+    **3. List**
+    ```json
+    {{
+      "secret": "prism-webhook-2026",
+      "source": "Deployment",
+      "severity": "info",
+      "type": "list",
+      "title": "Deployed Services",
+      "content": ["API Gateway", "Auth Service", "Database"]
+    }}
+    ```
+    
+    **4. Code Block**
+    ```json
+    {{
+      "secret": "prism-webhook-2026",
+      "source": "Log Alert",
+      "severity": "error",
+      "type": "code",
+      "title": "Error Trace",
+      "content": "ERROR: Connection timeout\\nStack trace..."
+    }}
+    ```
+    
+    **5. JSON Data**
+    ```json
+    {{
+      "secret": "prism-webhook-2026",
+      "source": "API Response",
+      "severity": "info",
+      "type": "json",
+      "title": "Response Payload",
+      "content": {{"status": 200, "data": [{{"id": 1}}]}}
+    }}
+    ```
+    
+    ### Severity Levels
+    - `info` 🔵 - Informational messages
+    - `warning` 🟡 - Warnings
+    - `error` 🟠 - Errors
+    - `critical` 🔴 - Critical alerts
     """)
 
 st.divider()
@@ -183,15 +292,22 @@ else:
             col1, col2 = st.columns([20, 1])
             
             with col1:
+                card_bg = "#2D2D2D" if is_dark else "#F8F9FA"
+                
                 st.markdown(f"""
-                <div style="border-left: 4px solid {border_color}; padding: 12px; margin-bottom: 8px; background: {'#2D2D2D' if theme == 'dark' else '#F8F9FA'}; border-radius: 4px;">
+                <div style="border-left: 4px solid {border_color}; padding: 12px; margin-bottom: 12px; background: {card_bg}; border-radius: 4px;">
                     <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                        <span>{icon} <strong>{row['source']}</strong> · {severity.upper()}</span>
+                        <span>{icon} <strong>{row['source']}</strong> · {severity.upper()} · {row.get('message_type', 'text').upper()}</span>
                         <span style="color: #9AA0A6; font-size: 0.9em;">{row['received_at']}</span>
                     </div>
-                    <div>{row['message']}</div>
                 </div>
                 """, unsafe_allow_html=True)
+                
+                # Render content
+                with st.container():
+                    render_message_content(row, is_dark)
+                
+                st.markdown("<br>", unsafe_allow_html=True)
             
             with col2:
                 if st.button("🗑️", key=f"del_{row['id']}"):

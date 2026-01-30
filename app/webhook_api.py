@@ -2,6 +2,7 @@
 Webhook API
 ===========
 Flask API to receive webhook notifications from automated workflows.
+Supports: text messages, tables, lists, code blocks, and custom data.
 """
 
 from flask import Flask, request, jsonify
@@ -13,7 +14,7 @@ import os
 app = Flask(__name__)
 
 DB_PATH = "/app/data/prism.db"
-WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "prism-webhook-2026")  # Change this!
+WEBHOOK_SECRET = os.getenv("WEBHOOK_SECRET", "prism-webhook-2026")
 
 
 def get_db():
@@ -32,7 +33,9 @@ def init_webhook_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             source TEXT,
             severity TEXT,
-            message TEXT,
+            message_type TEXT DEFAULT 'text',
+            title TEXT,
+            content TEXT,
             payload TEXT,
             received_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         )
@@ -53,13 +56,34 @@ def receive_webhook():
     """
     Receive webhook POST requests.
     
+    Supported message types:
+    - text: Simple text message
+    - table: Tabular data
+    - list: Bulleted/numbered list
+    - code: Code block
+    - json: Raw JSON display
+    
     Expected JSON payload:
     {
         "secret": "prism-webhook-2026",
         "source": "GCP Workflow",
         "severity": "info|warning|error|critical",
-        "message": "Your message here",
-        "data": {...}  // Optional additional data
+        "type": "text|table|list|code|json",
+        "title": "Optional title",
+        "content": "Your message or data",
+        "data": {...}  // Optional metadata
+    }
+    
+    For tables, use:
+    {
+        "type": "table",
+        "content": {
+            "headers": ["Col1", "Col2", "Col3"],
+            "rows": [
+                ["val1", "val2", "val3"],
+                ["val4", "val5", "val6"]
+            ]
+        }
     }
     """
     try:
@@ -76,21 +100,33 @@ def receive_webhook():
         # Extract fields
         source = payload.get('source', 'Unknown')
         severity = payload.get('severity', 'info').lower()
-        message = payload.get('message', '')
+        message_type = payload.get('type', 'text').lower()
+        title = payload.get('title', '')
+        content = payload.get('content', '')
         data = payload.get('data', {})
         
         # Validate severity
         if severity not in ['info', 'warning', 'error', 'critical']:
             severity = 'info'
         
+        # Validate message type
+        if message_type not in ['text', 'table', 'list', 'code', 'json']:
+            message_type = 'text'
+        
+        # Convert content to JSON string if it's a dict/list
+        if isinstance(content, (dict, list)):
+            content_str = json.dumps(content)
+        else:
+            content_str = str(content)
+        
         # Store in database
         conn = get_db()
         cursor = conn.cursor()
         
         cursor.execute("""
-            INSERT INTO webhook_messages (source, severity, message, payload)
-            VALUES (?, ?, ?, ?)
-        """, (source, severity, message, json.dumps(data)))
+            INSERT INTO webhook_messages (source, severity, message_type, title, content, payload)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (source, severity, message_type, title, content_str, json.dumps(data)))
         
         conn.commit()
         message_id = cursor.lastrowid
