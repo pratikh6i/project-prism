@@ -21,15 +21,20 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY app/ .
 
+# Copy startup script
+COPY start.sh /app/start.sh
+RUN chmod +x /app/start.sh
+
 # Create directories for persistent data
 RUN mkdir -p /app/data /app/logs
 
-# Expose Streamlit port
+# Expose ports
 EXPOSE 8501
+EXPOSE 5000
 
 # Healthcheck for container orchestration
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD curl --fail http://localhost:8501/_stcore/health || exit 1
 
-# Run Streamlit
-ENTRYPOINT ["streamlit", "run", "main.py", "--server.port=8501", "--server.address=0.0.0.0"]
+# Run startup script
+CMD ["/bin/bash", "/app/start.sh"]
