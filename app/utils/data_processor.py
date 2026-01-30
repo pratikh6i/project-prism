@@ -8,6 +8,7 @@ Filters columns based on reference list and outputs clean Excel.
 import pandas as pd
 from io import BytesIO
 from typing import Tuple
+from openpyxl.utils import get_column_letter
 
 from utils.logger import logger
 
@@ -161,16 +162,20 @@ def process_scc_export(uploaded_file) -> Tuple[BytesIO, dict]:
     with pd.ExcelWriter(output, engine='openpyxl') as writer:
         df_clean.to_excel(writer, sheet_name='Cleaned Findings', index=False)
         
-        # Auto-adjust column widths
+        # Auto-adjust column widths using proper Excel column naming
         worksheet = writer.sheets['Cleaned Findings']
         for idx, col in enumerate(df_clean.columns):
+            # Calculate column width
             max_length = max(
                 df_clean[col].astype(str).map(len).max() if len(df_clean) > 0 else 0,
                 len(str(col))
             )
             # Cap at 50 characters width
             adjusted_width = min(max_length + 2, 50)
-            worksheet.column_dimensions[chr(65 + idx) if idx < 26 else f"A{chr(65 + idx - 26)}"].width = adjusted_width
+            
+            # Use proper Excel column letter conversion (1-based index)
+            col_letter = get_column_letter(idx + 1)
+            worksheet.column_dimensions[col_letter].width = adjusted_width
     
     output.seek(0)
     
