@@ -31,8 +31,57 @@ if is_dark:
     </style>""", unsafe_allow_html=True)
 
 
+def migrate_webhook_table():
+    """Migrate old webhook table to new schema."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    
+    # Check if old columns exist
+    cursor.execute("PRAGMA table_info(webhook_messages)")
+    columns = {row[1] for row in cursor.fetchall()}
+    
+    # If old schema, migrate
+    if 'message' in columns and 'content' not in columns:
+        logger.info("Migrating webhook_messages table to new schema...")
+        
+        # Rename old table
+        cursor.execute("ALTER TABLE webhook_messages RENAME TO webhook_messages_old")
+        
+        # Create new table
+        cursor.execute("""
+            CREATE TABLE webhook_messages (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                source TEXT,
+                severity TEXT,
+                message_type TEXT DEFAULT 'text',
+                title TEXT,
+                content TEXT,
+                payload TEXT,
+                received_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+        
+        # Migrate data
+        cursor.execute("""
+            INSERT INTO webhook_messages (id, source, severity, message_type, title, content, payload, received_at)
+            SELECT id, source, severity, 'text', '', message, payload, received_at
+            FROM webhook_messages_old
+        """)
+        
+        # Drop old table
+        cursor.execute("DROP TABLE webhook_messages_old")
+        
+        conn.commit()
+        logger.info("Migration complete!")
+    
+    conn.close()
+
+
 def get_webhook_messages(limit=100, severity_filter=None, source_filter=None):
     """Fetch webhook messages from database."""
+    # Ensure schema is up to date
+    migrate_webhook_table()
+    
     conn = get_connection()
     
     query = "SELECT * FROM webhook_messages WHERE 1=1"
@@ -56,15 +105,18 @@ def get_webhook_messages(limit=100, severity_filter=None, source_filter=None):
     except Exception as e:
         logger.error(f"Error fetching webhook messages: {e}")
         conn.close()
-        return pd.DataFrame(columns=['id', 'source', 'severity', 'message_type', 'title', 'content', 'payload', 'received_at'])
+        return pd.DataFrame()
 
 
 def get_sources():
     """Get unique sources."""
     conn = get_connection()
     cursor = conn.cursor()
-    cursor.execute("SELECT DISTINCT source FROM webhook_messages ORDER BY source")
-    sources = [row[0] for row in cursor.fetchall()]
+    try:
+        cursor.execute("SELECT DISTINCT source FROM webhook_messages ORDER BY source")
+        sources = [row[0] for row in cursor.fetchall()]
+    except:
+        sources = []
     conn.close()
     return sources
 
@@ -80,9 +132,10 @@ def delete_message(msg_id):
 
 def render_message_content(row, is_dark):
     """Render message content based on type."""
-    content_type = row.get('message_type', 'text')
-    content = row['content']
-    title = row.get('title', '')
+    # Handle missing columns gracefully
+    content_type = row.get('message_type', 'text') if 'message_type' in row else 'text'
+    content = row.get('content', '') if 'content' in row else row.get('message', '')
+    title = row.get('title', '') if 'title' in row else ''
     
     # Title if present
     if title:
@@ -91,7 +144,7 @@ def render_message_content(row, is_dark):
     # Render based on type
     if content_type == 'table':
         try:
-            table_data = json.loads(content)
+            table_data = json.loads(content) if isinstance(content, str) else content
             headers = table_data.get('headers', [])
             rows = table_data.get('rows', [])
             
@@ -100,7 +153,8 @@ def render_message_content(row, is_dark):
                 st.dataframe(df, use_container_width=True, hide_index=True)
             else:
                 st.text(content)
-        except:
+        except Exception as e:
+            logger.error(f"Error rendering table: {e}")
             st.text(content)
     
     elif content_type == 'list':
@@ -111,7 +165,8 @@ def render_message_content(row, is_dark):
                     st.markdown(f"• {item}")
             else:
                 st.text(content)
-        except:
+        except Exception as e:
+            logger.error(f"Error rendering list: {e}")
             st.text(content)
     
     elif content_type == 'code':
@@ -121,7 +176,8 @@ def render_message_content(row, is_dark):
         try:
             json_data = json.loads(content) if isinstance(content, str) else content
             st.json(json_data)
-        except:
+        except Exception as e:
+            logger.error(f"Error rendering JSON: {e}")
             st.code(content, language='json')
     
     else:  # text
@@ -273,6 +329,7 @@ else:
     # Message list
     for idx, row in messages_df.iterrows():
         severity = row['severity']
+        message_type = row.get('message_type', 'text') if 'message_type' in row else 'text'
         
         # Color based on severity
         if severity == 'critical':
@@ -297,7 +354,7 @@ else:
                 st.markdown(f"""
                 <div style="border-left: 4px solid {border_color}; padding: 12px; margin-bottom: 12px; background: {card_bg}; border-radius: 4px;">
                     <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                        <span>{icon} <strong>{row['source']}</strong> · {severity.upper()} · {row.get('message_type', 'text').upper()}</span>
+                        <span>{icon} <strong>{row['source']}</strong> · {severity.upper()} · {message_type.upper()}</span>
                         <span style="color: #9AA0A6; font-size: 0.9em;">{row['received_at']}</span>
                     </div>
                 </div>
