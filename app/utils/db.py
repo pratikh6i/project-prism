@@ -1,8 +1,7 @@
 """
 Project Prism - SQLite Database Handler
 ========================================
-Manages client configurations with persistent storage.
-Database file: /app/data/prism.db
+Manages clients, client details, documents, and settings.
 """
 
 import sqlite3
@@ -13,31 +12,23 @@ import pandas as pd
 
 from utils.logger import logger
 
-# Configuration
 DB_PATH = "/app/data/prism.db"
 
 
 def get_connection() -> sqlite3.Connection:
-    """
-    Get a database connection with row factory enabled.
-    
-    Returns:
-        sqlite3.Connection instance
-    """
     conn = sqlite3.connect(DB_PATH)
     conn.row_factory = sqlite3.Row
     return conn
 
 
 def init_db() -> None:
-    """
-    Initialize the database and create tables if they don't exist.
-    """
+    """Initialize database with all required tables."""
     logger.info("Initializing database...")
     
     conn = get_connection()
     cursor = conn.cursor()
     
+    # Clients table
     cursor.execute("""
         CREATE TABLE IF NOT EXISTS clients (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -47,25 +38,50 @@ def init_db() -> None:
         )
     """)
     
+    # Client details (for manual notes/data per client)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS client_details (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            client_id INTEGER NOT NULL,
+            field_name TEXT NOT NULL,
+            field_value TEXT,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (client_id) REFERENCES clients(id) ON DELETE CASCADE
+        )
+    """)
+    
+    # Documents for Ops Wiki
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS documents (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            doc_url TEXT NOT NULL,
+            doc_type TEXT DEFAULT 'google_doc',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    """)
+    
+    # App settings (theme, etc)
+    cursor.execute("""
+        CREATE TABLE IF NOT EXISTS settings (
+            key TEXT PRIMARY KEY,
+            value TEXT
+        )
+    """)
+    
+    # Initialize default theme
+    cursor.execute("""
+        INSERT OR IGNORE INTO settings (key, value) VALUES ('theme', 'light')
+    """)
+    
     conn.commit()
     conn.close()
-    
-    logger.info("Database initialized successfully!")
+    logger.info("Database initialized!")
 
+
+# ============ CLIENT FUNCTIONS ============
 
 def add_client(name: str, project_id: str) -> tuple[bool, str]:
-    """
-    Add a new client to the database.
-    
-    Args:
-        name: Client name
-        project_id: GCP Project ID (must be unique)
-    
-    Returns:
-        Tuple of (success: bool, message: str)
-    """
-    logger.info(f"Adding client: {name} with project ID: {project_id}")
-    
     conn = get_connection()
     cursor = conn.cursor()
     
@@ -75,117 +91,155 @@ def add_client(name: str, project_id: str) -> tuple[bool, str]:
             (name.strip(), project_id.strip())
         )
         conn.commit()
-        logger.info(f"Client '{name}' added successfully!")
-        return True, f"Client '{name}' added successfully!"
-    
+        return True, f"Client '{name}' added!"
     except sqlite3.IntegrityError:
-        error_msg = f"A client with project ID '{project_id}' already exists."
-        logger.warning(error_msg)
-        return False, error_msg
-    
+        return False, f"Project ID '{project_id}' already exists."
     except Exception as e:
-        error_msg = f"Error adding client: {str(e)}"
-        logger.error(error_msg)
-        return False, error_msg
-    
+        return False, str(e)
     finally:
         conn.close()
 
 
 def get_clients() -> pd.DataFrame:
-    """
-    Retrieve all clients from the database.
-    
-    Returns:
-        Pandas DataFrame with all client records
-    """
-    logger.debug("Fetching all clients from database...")
-    
     conn = get_connection()
-    
     try:
         df = pd.read_sql_query(
             "SELECT id, client_name, gcp_project_id, created_at FROM clients ORDER BY created_at DESC",
             conn
         )
-        logger.debug(f"Retrieved {len(df)} clients")
         return df
-    
-    except Exception as e:
-        logger.error(f"Error fetching clients: {str(e)}")
+    except:
         return pd.DataFrame(columns=['id', 'client_name', 'gcp_project_id', 'created_at'])
-    
-    finally:
-        conn.close()
-
-
-def delete_client(client_id: int) -> tuple[bool, str]:
-    """
-    Delete a client by ID.
-    
-    Args:
-        client_id: The client's database ID
-    
-    Returns:
-        Tuple of (success: bool, message: str)
-    """
-    logger.info(f"Deleting client with ID: {client_id}")
-    
-    conn = get_connection()
-    cursor = conn.cursor()
-    
-    try:
-        # Check if client exists
-        cursor.execute("SELECT client_name FROM clients WHERE id = ?", (client_id,))
-        result = cursor.fetchone()
-        
-        if not result:
-            error_msg = f"Client with ID {client_id} not found."
-            logger.warning(error_msg)
-            return False, error_msg
-        
-        client_name = result['client_name']
-        
-        # Delete the client
-        cursor.execute("DELETE FROM clients WHERE id = ?", (client_id,))
-        conn.commit()
-        
-        success_msg = f"Client '{client_name}' deleted successfully!"
-        logger.info(success_msg)
-        return True, success_msg
-    
-    except Exception as e:
-        error_msg = f"Error deleting client: {str(e)}"
-        logger.error(error_msg)
-        return False, error_msg
-    
     finally:
         conn.close()
 
 
 def get_client_by_id(client_id: int) -> Optional[dict]:
-    """
-    Get a single client by ID.
-    
-    Args:
-        client_id: The client's database ID
-    
-    Returns:
-        Dictionary with client data or None if not found
-    """
     conn = get_connection()
     cursor = conn.cursor()
-    
+    try:
+        cursor.execute("SELECT * FROM clients WHERE id = ?", (client_id,))
+        result = cursor.fetchone()
+        return dict(result) if result else None
+    finally:
+        conn.close()
+
+
+def delete_client(client_id: int) -> bool:
+    conn = get_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("DELETE FROM clients WHERE id = ?", (client_id,))
+        conn.commit()
+        return cursor.rowcount > 0
+    finally:
+        conn.close()
+
+
+# ============ CLIENT DETAILS FUNCTIONS ============
+
+def get_client_details(client_id: int) -> dict:
+    """Get all details for a client as a dictionary."""
+    conn = get_connection()
+    cursor = conn.cursor()
     try:
         cursor.execute(
-            "SELECT id, client_name, gcp_project_id, created_at FROM clients WHERE id = ?",
+            "SELECT field_name, field_value FROM client_details WHERE client_id = ?",
             (client_id,)
         )
+        return {row['field_name']: row['field_value'] for row in cursor.fetchall()}
+    finally:
+        conn.close()
+
+
+def save_client_detail(client_id: int, field_name: str, field_value: str) -> bool:
+    """Save or update a client detail field."""
+    conn = get_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("""
+            INSERT INTO client_details (client_id, field_name, field_value, updated_at)
+            VALUES (?, ?, ?, CURRENT_TIMESTAMP)
+            ON CONFLICT(client_id, field_name) DO UPDATE SET
+                field_value = excluded.field_value,
+                updated_at = CURRENT_TIMESTAMP
+        """, (client_id, field_name, field_value))
+        conn.commit()
+        return True
+    except:
+        # If unique constraint doesn't exist, use old method
+        cursor.execute("DELETE FROM client_details WHERE client_id = ? AND field_name = ?", (client_id, field_name))
+        cursor.execute(
+            "INSERT INTO client_details (client_id, field_name, field_value) VALUES (?, ?, ?)",
+            (client_id, field_name, field_value)
+        )
+        conn.commit()
+        return True
+    finally:
+        conn.close()
+
+
+# ============ DOCUMENT FUNCTIONS ============
+
+def add_document(title: str, url: str, doc_type: str = 'google_doc') -> bool:
+    conn = get_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "INSERT INTO documents (title, doc_url, doc_type) VALUES (?, ?, ?)",
+            (title.strip(), url.strip(), doc_type)
+        )
+        conn.commit()
+        return True
+    except:
+        return False
+    finally:
+        conn.close()
+
+
+def get_documents() -> pd.DataFrame:
+    conn = get_connection()
+    try:
+        return pd.read_sql_query("SELECT * FROM documents ORDER BY created_at DESC", conn)
+    except:
+        return pd.DataFrame(columns=['id', 'title', 'doc_url', 'doc_type', 'created_at'])
+    finally:
+        conn.close()
+
+
+def delete_document(doc_id: int) -> bool:
+    conn = get_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("DELETE FROM documents WHERE id = ?", (doc_id,))
+        conn.commit()
+        return cursor.rowcount > 0
+    finally:
+        conn.close()
+
+
+# ============ SETTINGS FUNCTIONS ============
+
+def get_setting(key: str, default: str = None) -> str:
+    conn = get_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute("SELECT value FROM settings WHERE key = ?", (key,))
         result = cursor.fetchone()
-        
-        if result:
-            return dict(result)
-        return None
-    
+        return result['value'] if result else default
+    finally:
+        conn.close()
+
+
+def set_setting(key: str, value: str) -> bool:
+    conn = get_connection()
+    cursor = conn.cursor()
+    try:
+        cursor.execute(
+            "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
+            (key, value)
+        )
+        conn.commit()
+        return True
     finally:
         conn.close()
