@@ -1,7 +1,7 @@
 """
 Prism - Simple SecOps Dashboard
 ================================
-SCC Cleaner + Ops Wiki
+SCC Cleaner + Ops Wiki + Webhook Dashboard
 """
 
 import streamlit as st
@@ -54,18 +54,24 @@ st.markdown("SecOps tools for Cloud Security Engineers")
 
 st.divider()
 
-col1, col2 = st.columns(2)
+col1, col2, col3 = st.columns(3)
 
 with col1:
     st.markdown("### 🔄 SCC Export Cleaner")
-    st.markdown("Clean SCC finding exports → Organized Excel reports")
+    st.markdown("Clean SCC finding exports")
     if st.button("Open SCC Cleaner", use_container_width=True, type="primary"):
         st.switch_page("pages/1_SCC_Cleaner.py")
 
 with col2:
     st.markdown("### 📚 Ops Wiki")
-    st.markdown("Embedded runbooks and SOPs for your team")
+    st.markdown("Embedded runbooks & SOPs")
     if st.button("Open Ops Wiki", use_container_width=True, type="primary"):
         st.switch_page("pages/2_Ops_Wiki.py")
+
+with col3:
+    st.markdown("### 📡 Webhook Dashboard")
+    st.markdown("View workflow notifications")
+    if st.button("Open Webhooks", use_container_width=True, type="primary"):
+        st.switch_page("pages/3_Webhook_Dashboard.py")
 
 logger.info("Prism loaded")

@@ -1,15 +1,16 @@
 version: '3.8'
 
 services:
+  # Streamlit App
   prism:
     build:
       context: .
       dockerfile: Dockerfile
     container_name: prism-app
     ports:
-      - "8501:8501"
+      - "8501:8501"  # Streamlit UI
+      - "5000:5000"  # Webhook API
     volumes:
-      # Mount host directories for data persistence across container restarts
       - ./data:/app/data
       - ./logs:/app/logs
     environment:
@@ -17,6 +18,10 @@ services:
       - STREAMLIT_SERVER_ADDRESS=0.0.0.0
       - STREAMLIT_SERVER_HEADLESS=true
       - STREAMLIT_BROWSER_GATHER_USAGE_STATS=false
+      - WEBHOOK_SECRET=prism-webhook-2026
+    command: >
+      sh -c "python /app/webhook_api.py &
+             streamlit run /app/main.py"
     restart: always
     healthcheck:
       test: ["CMD", "curl", "--fail", "http://localhost:8501/_stcore/health"]
