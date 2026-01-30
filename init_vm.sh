@@ -65,15 +65,26 @@ print_success "Prerequisites installed!"
 # Step 3: Install Docker Engine
 print_status "Installing Docker Engine..."
 
+# Detect OS and Codename
+OS_ID=$(grep -oP '^ID=\K\w+' /etc/os-release)
+CODENAME=$(grep -oP '^VERSION_CODENAME=\K\w+' /etc/os-release)
+
+if [[ "$OS_ID" != "ubuntu" && "$OS_ID" != "debian" ]]; then
+    print_warning "OS is $OS_ID. Attempting to use Debian-style installation as fallback..."
+    OS_ID="debian"
+fi
+
+print_status "Detected OS: $OS_ID ($CODENAME)"
+
 # Add Docker's official GPG key
 $SUDO install -m 0755 -d /etc/apt/keyrings
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg | $SUDO gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+curl -fsSL "https://download.docker.com/linux/$OS_ID/gpg" | $SUDO gpg --dearmor -o /etc/apt/keyrings/docker.gpg
 $SUDO chmod a+r /etc/apt/keyrings/docker.gpg
 
 # Add Docker repository
 echo \
-  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
-  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
+  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/$OS_ID \
+  $CODENAME stable" | \
   $SUDO tee /etc/apt/sources.list.d/docker.list > /dev/null
 
 # Install Docker packages
