@@ -1,0 +1,69 @@
+name: Host on GitHub (Localtunnel)
+
+on:
+  workflow_dispatch:
+    inputs:
+      duration:
+        description: 'Duration to keep app live (minutes, max 360)'
+        required: true
+        default: '60'
+
+jobs:
+  host-app:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+
+      - name: Install dependencies
+        run: |
+          pip install -r app/requirements.txt
+          pip install flask streamlit
+
+      - name: Install Localtunnel
+        run: npm install -g localtunnel
+
+      - name: Start services and expose
+        run: |
+          # Start Flask in background
+          python app/webhook_api.py &
+          
+          # Start Streamlit in background on port 8501
+          streamlit run app/main.py --server.port 8501 --server.address 0.0.0.0 &
+          
+          echo "Waiting for services to start..."
+          sleep 10
+          
+          echo "Services started. Exposing via Localtunnel..."
+          
+          # Unique subdomain based on repo and run
+          SUBDOMAIN="prism-${{ github.event.repository.name }}-${{ github.run_id }}"
+          
+          # Expose Streamlit (8501)
+          lt --port 8501 --subdomain "${SUBDOMAIN}" &
+          
+          # Webhook (5000)
+          lt --port 5000 --subdomain "${SUBDOMAIN}-webhook" &
+          
+          echo "---------------------------------------------------"
+          echo "🚀 APP IS LIVE!"
+          echo "Dashboard: https://${SUBDOMAIN}.loca.lt"
+          echo "Webhook:   https://${SUBDOMAIN}-webhook.loca.lt"
+          echo "---------------------------------------------------"
+          echo "Note: If asked for a 'Tunnel Password' or 'Endpoint IP'," 
+          echo "use the public IP of this runner (can be found in logs or by adding 'curl ifconfig.me' step)."
+          
+          # Get IP for Localtunnel bypass
+          RUNNER_IP=$(curl -s ifconfig.me)
+          echo "Tunnel Password (IP): ${RUNNER_IP}"
+          
+          # Keep the job running
+          DURATION_MIN=${{ github.event.inputs.duration }}
+          DURATION_SEC=$((DURATION_MIN * 60))
+          echo "Staying live for ${DURATION_MIN} minutes..."
+          sleep ${DURATION_SEC}
