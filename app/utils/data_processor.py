@@ -132,22 +132,51 @@ def process_scc_export(uploaded_file) -> Tuple[BytesIO, dict]:
     """
     logger.info("Starting SCC export processing")
     
-    # Read the full CSV
-    df = pd.read_csv(uploaded_file)
+    # Read the full CSV with support for common encodings
+    try:
+        # Try reading with utf-8-sig to handle BOM if present
+        df = pd.read_csv(uploaded_file, encoding='utf-8-sig')
+    except UnicodeDecodeError:
+        # Fallback to latin-1 for tricky headers
+        uploaded_file.seek(0)
+        df = pd.read_csv(uploaded_file, encoding='latin-1')
+        
     original_rows = len(df)
     original_cols = len(df.columns)
     
     logger.info(f"Loaded CSV: {original_rows} rows, {original_cols} columns")
     
-    # Find matching columns from reference list
-    existing_cols = df.columns.tolist()
-    matched_columns = [col for col in REFERENCE_COLUMNS if col in existing_cols]
-    missing_columns = [col for col in REFERENCE_COLUMNS if col not in existing_cols]
+    # Clean and normalize existing column names
+    existing_cols_orig = df.columns.tolist()
+    normalized_to_orig = {col.strip().lower(): col for col in existing_cols_orig}
+    
+    # Find matching columns from reference list (case-insensitive and trimmed)
+    matched_columns = []
+    missing_columns = []
+    
+    for ref_col in REFERENCE_COLUMNS:
+        normalized_ref = ref_col.strip().lower()
+        if normalized_ref in normalized_to_orig:
+            matched_columns.append(normalized_to_orig[normalized_ref])
+        else:
+            missing_columns.append(ref_col)
     
     logger.info(f"Matched {len(matched_columns)} of {len(REFERENCE_COLUMNS)} reference columns")
     
     if not matched_columns:
-        raise ValueError("No matching columns found. Please check if this is a valid SCC export.")
+        # Last resort: try substring matching for core project name column
+        project_name_indicators = ['project', 'display', 'name']
+        found_project_col = None
+        for col in existing_cols_orig:
+            if all(ind in col.lower() for ind in project_name_indicators):
+                found_project_col = col
+                break
+        
+        if found_project_col:
+            matched_columns.append(found_project_col)
+            logger.info(f"Sub-optimal match found for project name column: {found_project_col}")
+        else:
+            raise ValueError("No matching columns found. Please check if this is a valid SCC export.")
     
     # Filter to only matched columns
     df_clean = df[matched_columns].copy()

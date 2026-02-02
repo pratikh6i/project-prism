@@ -191,8 +191,22 @@ st.divider()
 
 # Webhook URL info
 st.markdown("##### Webhook Endpoint")
-vm_ip = "35.200.238.102"
-webhook_url = f"http://{vm_ip}:5000/webhook/receive"
+st.info("💡 When hosted on GitHub, use the **Webhook URL** provided in the GitHub Actions logs (ends in `.loca.lt`).")
+
+# Try to get the host from headers if available (Streamlit 1.14+)
+try:
+    from streamlit.web.server.server import Server
+    import streamlit.runtime.scriptrunner as scriptrunner
+    
+    # This is a bit hacky but works for some Streamlit versions to get the current URL
+    ctx = scriptrunner.get_script_run_ctx()
+    if ctx:
+        host = st.context.headers.get("Host", "your-app.loca.lt")
+        webhook_url = f"https://{host.replace('.loca.lt', '-webhook.loca.lt')}/webhook/receive"
+    else:
+        webhook_url = "https://your-webhook-url.loca.lt/webhook/receive"
+except:
+    webhook_url = "https://your-webhook-url.loca.lt/webhook/receive"
 
 col1, col2 = st.columns([3, 1])
 with col1:
